@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포트폴리오 관리 시스템</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status.offline {
+            background: #ff5252;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            background: rgba(0,0,0,0.3);
+            padding: 8px 15px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .stat-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        
+        .stat-value.positive {
+            color: #ff5252;
+        }
+        
+        .stat-value.negative {
+            color: #5285ff;
+        }
+        
+        .content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .treemap-section {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #2a2a2a;
+        }
+        
+        .section-header {
+            background: #1a1a1a;
+            padding: 15px 20px;
+            border-bottom: 2px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .live-badge {
+            background: #ff5252;
+            color: white;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+            animation: blink 2s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            background: rgba(82, 133, 255, 0.3);
+            border: 1px solid rgba(82, 133, 255, 0.5);
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn:hover {
+            background: rgba(82, 133, 255, 0.5);
+        }
+        
+        .btn-add {
+            background: rgba(76, 175, 80, 0.3);
+            border-color: rgba(76, 175, 80, 0.5);
+        }
+        
+        .btn-add:hover {
+            background: rgba(76, 175, 80, 0.5);
+        }
+        
+        #treemap {
+            flex: 1;
+            background: #0a0a0a;
+        }
+        
+        .stock-cell {
+            stroke: #0a0a0a;
+            stroke-width: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .stock-bubble {
+            stroke: rgba(255,255,255,0.3);
+            stroke-width: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .bubble-group {
+            /* transform을 사용하지 않고 다른 속성으로 애니메이션 */
+        }
+        
+        .bubble-group .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .bubble-group:nth-child(2n) .floating {
+            animation: float2 3.5s ease-in-out infinite;
+        }
+        
+        .bubble-group:nth-child(3n) .floating {
+            animation: float3 4s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-12px);
+            }
+        }
+        
+        @keyframes float2 {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+        
+        @keyframes float3 {
+            0%, 100% {
+                transform: translateY(0px);
+            }
+            50% {
+                transform: translateY(-15px);
+            }
+        }
+        
+        .stock-bubble:hover {
+            stroke: white;
+            stroke-width: 3px;
+            filter: brightness(1.2);
+        }
+        
+        .stock-label {
+            pointer-events: none;
+            font-size: 14px;
+            font-weight: 700;
+            fill: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+        
+        .stock-info {
+            pointer-events: none;
+            font-size: 11px;
+            font-weight: 600;
+            fill: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+        
+        .sector-badge {
+            pointer-events: none;
+            font-size: 9px;
+            font-weight: 600;
+            fill: white;
+            opacity: 0.8;
+        }
+        
+        .legend {
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 11px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .legend-color {
+            width: 30px;
+            height: 16px;
+            border-radius: 3px;
+        }
+        
+        .watchlist-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0f0f0f;
+            min-width: 350px;
+            max-width: 500px;
+        }
+        
+        .watchlist-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 40px 20px;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .stock-item {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .stock-item:hover {
+            border-color: rgba(255,255,255,0.2);
+            transform: translateX(-2px);
+        }
+        
+        .stock-item.profit {
+            border-left: 4px solid #ff5252;
+        }
+        
+        .stock-item.loss {
+            border-left: 4px solid #5285ff;
+        }
+        
+        .stock-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .stock-item-name {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .stock-item-sector {
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-bottom: 3px;
+        }
+        
+        .stock-item-code {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .stock-item-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .stock-item-edit,
+        .stock-item-delete {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .stock-item-delete {
+            background: rgba(255,82,82,0.2);
+            color: #ff5252;
+        }
+        
+        .stock-item-delete:hover {
+            background: rgba(255,82,82,0.4);
+            transform: scale(1.1);
+        }
+        
+        .stock-item-edit:hover {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.1);
+        }
+        
+        .stock-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .metric {
+            background: rgba(255,255,255,0.05);
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        .metric-label {
+            font-size: 10px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 3px;
+        }
+        
+        .metric-value {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        
+        .metric-value.positive {
+            color: #ff5252;
+        }
+        
+        .metric-value.negative {
+            color: #5285ff;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            transition: width 0.3s;
+        }
+        
+        .progress-fill.negative {
+            background: linear-gradient(90deg, #f44336, #e57373);
+        }
+        
+        .stock-item-memo {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .form-label .required {
+            color: #ff5252;
+        }
+        
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 5px;
+            color: white;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #5285ff;
+        }
+        
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .form-hint {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 5px;
+        }
+        
+        .autocomplete-container {
+            position: relative;
+        }
+        
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 5px;
+            margin-top: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        
+        .autocomplete-list.active {
+            display: block;
+        }
+        
+        .autocomplete-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .autocomplete-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .autocomplete-item-name {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .autocomplete-item-code {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .modal-btn-primary {
+            background: #5285ff;
+            color: white;
+        }
+        
+        .modal-btn-primary:hover {
+            background: #4070e0;
+        }
+        
+        .modal-btn-primary:disabled {
+            background: rgba(82, 133, 255, 0.3);
+            cursor: not-allowed;
+        }
+        
+        .modal-btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .modal-btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .watchlist-content::-webkit-scrollbar,
+        .autocomplete-list::-webkit-scrollbar,
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .watchlist-content::-webkit-scrollbar-track,
+        .autocomplete-list::-webkit-scrollbar-track,
+        .modal-content::-webkit-scrollbar-track {
+            background: #0f0f0f;
+        }
+        
+        .watchlist-content::-webkit-scrollbar-thumb,
+        .autocomplete-list::-webkit-scrollbar-thumb,
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">
+                <span class="status" id="serverStatus"></span>
+                💼 포트폴리오 관리 시스템
+            </div>
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-label">총 투자금</div>
+                    <div class="stat-value" id="totalInvestment">0원</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">총 평가액</div>
+                    <div class="stat-value" id="totalValue">0원</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">총 손익</div>
+                    <div class="stat-value" id="totalProfit">0원</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">수익률</div>
+                    <div class="stat-value" id="totalProfitRate">0%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">목표가 달성률</div>
+                    <div class="stat-value" id="targetAchievement">0%</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="treemap-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        🎈 오늘의 포트폴리오 (버블 히트맵)
+                        <span class="live-badge">LIVE</span>
+                    </div>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <div class="legend" style="position: static; margin: 0;">
+                            <div class="legend-title">📊 색상 구분</div>
+                            <div style="display: flex; gap: 15px; margin-top: 8px;">
+                                <div class="legend-item" style="margin: 0;">
+                                    <div class="legend-color" style="background: linear-gradient(to right, #ffcdd2, #c62828); width: 40px;"></div>
+                                    <span>상승</span>
+                                </div>
+                                <div class="legend-item" style="margin: 0;">
+                                    <div class="legend-color" style="background: #616161; width: 40px;"></div>
+                                    <span>보합</span>
+                                </div>
+                                <div class="legend-item" style="margin: 0;">
+                                    <div class="legend-color" style="background: linear-gradient(to right, #bbdefb, #1565c0); width: 40px;"></div>
+                                    <span>하락</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn" onclick="updateTreemap()">
+                            🔄 새로고침
+                        </button>
+                    </div>
+                </div>
+                <div style="position: relative; flex: 1;">
+                    <svg id="treemap"></svg>
+                </div>
+            </div>
+            
+            <div class="watchlist-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        ⭐ 보유 종목
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" onclick="refreshAllStocks()">
+                            🔄
+                        </button>
+                        <button class="btn btn-add" onclick="openAddModal()">
+                            ➕ 추가
+                        </button>
+                    </div>
+                </div>
+                <div class="watchlist-content" id="watchlistContent">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <div>보유 종목이 없습니다</div>
+                        <div style="font-size: 12px; margin-top: 8px;">
+                            "추가" 버튼을 눌러<br>
+                            보유 종목을 추가해보세요!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title" id="modalTitle">⭐ 종목 추가</div>
+            
+            <div class="form-group full-width">
+                <label class="form-label">종목명 <span class="required">*</span></label>
+                <div class="autocomplete-container">
+                    <input type="text" id="stockName" class="form-input" placeholder="예: 삼성전자, 005930, 0064K0" oninput="handleStockSearch()">
+                    <div id="autocompleteList" class="autocomplete-list"></div>
+                </div>
+                <div class="form-hint">💡 종목명 또는 종목코드로 검색 (숫자 6자리, 레버리지 ETF는 영문 포함)</div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">보유 수량 <span class="required">*</span></label>
+                    <input type="number" id="stockQuantity" class="form-input" placeholder="10" min="0" step="0.01">
+                    <div class="form-hint">보유 주식 수</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">평균 매수가 <span class="required">*</span></label>
+                    <input type="number" id="stockBuyPrice" class="form-input" placeholder="70000" min="0">
+                    <div class="form-hint">원 (단가)</div>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">목표가</label>
+                    <input type="number" id="stockTargetPrice" class="form-input" placeholder="100000" min="0">
+                    <div class="form-hint">목표 주가 (선택)</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">섹터 <span class="required">*</span></label>
+                    <select id="stockSector" class="form-select">
+                        <option value="">선택...</option>
+                        <option value="IT">IT/기술</option>
+                        <option value="금융">금융</option>
+                        <option value="제조">제조/자동차</option>
+                        <option value="바이오">바이오/헬스케어</option>
+                        <option value="통신">통신</option>
+                        <option value="에너지">에너지/화학</option>
+                        <option value="기타">기타</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group full-width">
+                <label class="form-label">메모</label>
+                <textarea id="stockMemo" class="form-input form-textarea" placeholder="예: 배당 기대, 장기 보유 목적 등"></textarea>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeAddModal()">취소</button>
+                <button class="modal-btn modal-btn-primary" id="addBtn" onclick="saveStock()" disabled>추가</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+        let selectedStock = null;
+        let editingIndex = -1;
+        let updateInterval;
+        let serverOnline = false;
+
+        let watchlist = localStorage.getItem('portfolio') ? 
+            JSON.parse(localStorage.getItem('portfolio')) : [];
+
+        function saveWatchlist() {
+            localStorage.setItem('portfolio', JSON.stringify(watchlist));
+        }
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    serverOnline = true;
+                    document.getElementById('serverStatus').classList.remove('offline');
+                } else {
+                    throw new Error('Server not ok');
+                }
+            } catch (error) {
+                serverOnline = false;
+                document.getElementById('serverStatus').classList.add('offline');
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('addModal').classList.contains('active')) {
+                closeAddModal();
+            }
+        });
+
+        function getColor(changeRate) {
+            // 등락률 기반 색상: 빨강(상승) / 파랑(하락)
+            // 진하기는 등락폭에 비례
+            
+            if (changeRate > 0) {
+                // 상승: 빨간색 (0% ~ +10% 이상)
+                const intensity = Math.min(changeRate / 10, 1); // 10% 이상이면 최대 진하기
+                // 연한 빨강(#ffcdd2) → 진한 빨강(#c62828)
+                const lightness = 90 - (intensity * 60); // 90% → 30%
+                return `hsl(4, 90%, ${lightness}%)`;
+            } else if (changeRate < 0) {
+                // 하락: 파란색 (0% ~ -10% 이상)
+                const intensity = Math.min(Math.abs(changeRate) / 10, 1);
+                // 연한 파랑(#bbdefb) → 진한 파랑(#1565c0)
+                const lightness = 85 - (intensity * 55); // 85% → 30%
+                return `hsl(207, 90%, ${lightness}%)`;
+            } else {
+                // 보합: 회색
+                return '#616161';
+            }
+        }
+
+        function calculateStats() {
+            if (watchlist.length === 0) {
+                document.getElementById('totalInvestment').textContent = '0원';
+                document.getElementById('totalValue').textContent = '0원';
+                document.getElementById('totalProfit').textContent = '0원';
+                document.getElementById('totalProfitRate').textContent = '0%';
+                document.getElementById('targetAchievement').textContent = '0%';
+                return;
+            }
+
+            let totalInvest = 0;
+            let totalValue = 0;
+            let targetReached = 0;
+            let targetCount = 0;
+
+            watchlist.forEach(stock => {
+                const currentPrice = parseInt(stock.price.replace(/,/g, ''));
+                const investAmount = stock.buyPrice * stock.quantity;
+                const currentAmount = currentPrice * stock.quantity;
+                
+                totalInvest += investAmount;
+                totalValue += currentAmount;
+                
+                if (stock.targetPrice && stock.targetPrice > 0) {
+                    targetCount++;
+                    if (currentPrice >= stock.targetPrice) {
+                        targetReached++;
+                    }
+                }
+            });
+
+            const totalProfit = totalValue - totalInvest;
+            const profitRate = (totalProfit / totalInvest * 100).toFixed(2);
+            const targetAchievement = targetCount > 0 ? (targetReached / targetCount * 100).toFixed(1) : 0;
+
+            document.getElementById('totalInvestment').textContent = totalInvest.toLocaleString() + '원';
+            document.getElementById('totalValue').textContent = totalValue.toLocaleString() + '원';
+            
+            const profitEl = document.getElementById('totalProfit');
+            profitEl.textContent = (totalProfit >= 0 ? '+' : '') + totalProfit.toLocaleString() + '원';
+            profitEl.className = 'stat-value ' + (totalProfit >= 0 ? 'positive' : 'negative');
+            
+            const rateEl = document.getElementById('totalProfitRate');
+            rateEl.textContent = (profitRate >= 0 ? '+' : '') + profitRate + '%';
+            rateEl.className = 'stat-value ' + (profitRate >= 0 ? 'positive' : 'negative');
+            
+            document.getElementById('targetAchievement').textContent = targetAchievement + '%';
+        }
+
+        async function updateTreemap() {
+            if (watchlist.length === 0) {
+                const svg = d3.select('#treemap');
+                svg.selectAll('*').remove();
+                svg.append('text')
+                    .attr('x', '50%')
+                    .attr('y', '50%')
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#666')
+                    .style('font-size', '16px')
+                    .text('종목을 추가하면 포트폴리오가 표시됩니다');
+                return;
+            }
+
+            const data = {
+                name: 'portfolio',
+                children: watchlist.map(stock => {
+                    const currentPrice = parseInt(stock.price.replace(/,/g, ''));
+                    const holdingValue = currentPrice * stock.quantity;
+                    
+                    return {
+                        name: stock.name,
+                        value: holdingValue,
+                        price: stock.price,
+                        quantity: stock.quantity,
+                        buyPrice: stock.buyPrice,
+                        targetPrice: stock.targetPrice,
+                        changeRate: stock.changeRate,
+                        change: stock.change,
+                        profitRate: ((currentPrice - stock.buyPrice) / stock.buyPrice * 100).toFixed(2),
+                        sector: stock.sector
+                    };
+                })
+            };
+
+            const container = document.querySelector('.treemap-section');
+            const width = container.clientWidth;
+            const height = container.clientHeight - 60;
+
+            const svg = d3.select('#treemap');
+            svg.selectAll('*').remove();
+            svg.attr('width', width).attr('height', height);
+
+            // Treemap 레이아웃 사용 (화면 전체)
+            const root = d3.hierarchy(data)
+                .sum(d => d.value)
+                .sort(() => Math.random() - 0.5);  // 랜덤 정렬!
+
+            d3.treemap()
+                .size([width, height])
+                .paddingInner(8)  // 영역 간 간격 증가
+                .paddingOuter(5)  // 외부 여백
+                .tile(d3.treemapBinary)  // binary 알고리즘으로 더 자연스러운 배치
+                .round(true)
+                (root);
+
+            const cell = svg.selectAll('g')
+                .data(root.leaves())
+                .enter()
+                .append('g')
+                .attr('class', 'bubble-group')
+                .attr('transform', d => `translate(${d.x0},${d.y0})`);
+
+            // 각 영역의 크기
+            cell.each(function(d, i) {
+                const g = d3.select(this);
+                const boxWidth = d.x1 - d.x0;
+                const boxHeight = d.y1 - d.y0;
+                
+                // 박스 중심점
+                const centerX = boxWidth / 2;
+                const centerY = boxHeight / 2;
+                
+                // 원의 반지름 (박스에 맞게 - 여유 공간 더 많이)
+                // 박스 크기의 절반보다 작게, 최소 10px 여유
+                const maxRadius = Math.min(boxWidth, boxHeight) / 2 - 10;
+                const radius = Math.max(15, maxRadius);  // 최소 반지름 15px
+                
+                // floating을 위한 inner g 추가
+                const floatingGroup = g.append('g')
+                    .attr('class', 'floating')
+                    .style('animation-delay', `${i * 0.15}s`);
+                
+                // 원형 그리기
+                floatingGroup.append('circle')
+                    .attr('class', 'stock-bubble')
+                    .attr('cx', centerX)
+                    .attr('cy', centerY)
+                    .attr('r', 0)
+                    .attr('fill', d => getColor(d.data.changeRate))
+                    .on('click', (event, d) => {
+                        const currentPrice = parseInt(d.data.price.replace(/,/g, ''));
+                        const profit = (currentPrice - d.data.buyPrice) * d.data.quantity;
+                        const target = d.data.targetPrice ? `\n목표가: ${d.data.targetPrice.toLocaleString()}원` : '';
+                        alert(`${d.data.name} [${d.data.sector}]\n\n` +
+                              `📊 오늘 등락\n` +
+                              `등락: ${d.data.change >= 0 ? '+' : ''}${d.data.change.toLocaleString()}원 (${d.data.changeRate >= 0 ? '+' : ''}${d.data.changeRate}%)\n\n` +
+                              `💼 보유 현황\n` +
+                              `보유: ${d.data.quantity}주\n` +
+                              `매수가: ${d.data.buyPrice.toLocaleString()}원\n` +
+                              `현재가: ${d.data.price}\n` +
+                              `총 수익: ${profit >= 0 ? '+' : ''}${profit.toLocaleString()}원 (${d.data.profitRate}%)${target}`);
+                    })
+                    .transition()
+                    .duration(1000)
+                    .delay(i * 80)
+                    .ease(d3.easeElasticOut)
+                    .attr('r', radius);
+
+                // 텍스트 추가
+                if (boxWidth > 60 && boxHeight > 40) {
+                    // 종목명
+                    const nameText = floatingGroup.append('text')
+                        .attr('class', 'stock-label')
+                        .attr('x', centerX)
+                        .attr('y', centerY - radius * 0.3)
+                        .attr('text-anchor', 'middle')
+                        .style('font-size', `${Math.min(radius / 2, 18)}px`)
+                        .style('opacity', 0)
+                        .text(d.data.name);
+                    
+                    // 텍스트 길이 체크
+                    try {
+                        const textWidth = nameText.node().getComputedTextLength();
+                        const maxWidth = radius * 1.8;
+                        if (textWidth > maxWidth) {
+                            let fontSize = Math.min(radius / 2, 18);
+                            fontSize = fontSize * (maxWidth / textWidth);
+                            if (fontSize < 10) {
+                                let shortName = d.data.name;
+                                if (shortName.length > 6) {
+                                    shortName = shortName.substring(0, 5) + '..';
+                                }
+                                nameText.text(shortName);
+                                nameText.style('font-size', '10px');
+                            } else {
+                                nameText.style('font-size', `${fontSize}px`);
+                            }
+                        }
+                    } catch (e) {}
+                    
+                    nameText.transition()
+                        .duration(800)
+                        .delay(500)
+                        .style('opacity', 1);
+                    
+                    // 등락률
+                    if (boxHeight > 60) {
+                        floatingGroup.append('text')
+                            .attr('class', 'stock-info')
+                            .attr('x', centerX)
+                            .attr('y', centerY + radius * 0.1)
+                            .attr('text-anchor', 'middle')
+                            .style('font-size', `${Math.min(radius / 2.5, 14)}px`)
+                            .style('font-weight', '700')
+                            .style('opacity', 0)
+                            .text(`${d.data.changeRate >= 0 ? '+' : ''}${d.data.changeRate}%`)
+                            .transition()
+                            .duration(800)
+                            .delay(600)
+                            .style('opacity', 1);
+                    }
+                    
+                    // 보유 수량
+                    if (boxHeight > 80) {
+                        floatingGroup.append('text')
+                            .attr('class', 'stock-info')
+                            .attr('x', centerX)
+                            .attr('y', centerY + radius * 0.5)
+                            .attr('text-anchor', 'middle')
+                            .style('font-size', `${Math.min(radius / 3, 12)}px`)
+                            .style('opacity', 0)
+                            .text(`${d.data.quantity}주`)
+                            .transition()
+                            .duration(800)
+                            .delay(700)
+                            .style('opacity', 0.8);
+                    }
+                }
+            });
+        }
+
+        async function handleStockSearch() {
+            const input = document.getElementById('stockName').value.trim();
+            const list = document.getElementById('autocompleteList');
+            
+            if (input.length === 0) {
+                list.classList.remove('active');
+                selectedStock = null;
+                updateAddButtonState();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/search?q=${encodeURIComponent(input)}`);
+                const results = await response.json();
+                
+                if (results.length === 0) {
+                    list.classList.remove('active');
+                    return;
+                }
+                
+                list.innerHTML = results.map(stock => `
+                    <div class="autocomplete-item" onclick='selectStock(${JSON.stringify(stock)})'>
+                        <div class="autocomplete-item-name">${stock.name}</div>
+                        <div class="autocomplete-item-code">${stock.code}</div>
+                    </div>
+                `).join('');
+                
+                list.classList.add('active');
+            } catch (error) {
+                console.error('검색 실패:', error);
+            }
+        }
+
+        function selectStock(stock) {
+            selectedStock = stock;
+            document.getElementById('stockName').value = stock.name;
+            document.getElementById('autocompleteList').classList.remove('active');
+            updateAddButtonState();
+        }
+
+        function updateAddButtonState() {
+            const name = selectedStock !== null;
+            const quantity = document.getElementById('stockQuantity').value.trim() !== '';
+            const buyPrice = document.getElementById('stockBuyPrice').value.trim() !== '';
+            const sector = document.getElementById('stockSector').value !== '';
+            
+            document.getElementById('addBtn').disabled = !(name && quantity && buyPrice && sector);
+        }
+
+        ['stockQuantity', 'stockBuyPrice', 'stockSector'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateAddButtonState);
+            document.getElementById(id).addEventListener('change', updateAddButtonState);
+        });
+
+        async function fetchStockPrice(code) {
+            try {
+                const response = await fetch(`${API_URL}/api/stock/${code}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    return {
+                        price: data.price,
+                        change: data.change,
+                        changeRate: data.changeRate,
+                        marketCap: data.marketCap
+                    };
+                }
+            } catch (error) {
+                console.error('시세 조회 실패:', error);
+            }
+            return null;
+        }
+
+        async function saveStock() {
+            if (!selectedStock) {
+                alert('종목을 선택해주세요!');
+                return;
+            }
+            
+            if (!serverOnline) {
+                alert('서버가 실행되지 않았습니다.');
+                return;
+            }
+            
+            const quantity = parseFloat(document.getElementById('stockQuantity').value);
+            const buyPrice = parseInt(document.getElementById('stockBuyPrice').value);
+            const targetPrice = parseInt(document.getElementById('stockTargetPrice').value) || 0;
+            const sector = document.getElementById('stockSector').value;
+            const memo = document.getElementById('stockMemo').value.trim();
+            
+            if (!quantity || !buyPrice || !sector) {
+                alert('필수 항목을 모두 입력해주세요!');
+                return;
+            }
+            
+            if (editingIndex === -1 && watchlist.some(s => s.code === selectedStock.code)) {
+                alert('이미 추가된 종목입니다!');
+                return;
+            }
+            
+            document.getElementById('addBtn').disabled = true;
+            document.getElementById('addBtn').textContent = '저장 중...';
+            
+            const priceData = await fetchStockPrice(selectedStock.code);
+            
+            if (priceData) {
+                const stockData = {
+                    name: selectedStock.name,
+                    code: selectedStock.code,
+                    price: priceData.price,
+                    change: priceData.change,
+                    changeRate: priceData.changeRate,
+                    marketCap: priceData.marketCap,
+                    quantity: quantity,
+                    buyPrice: buyPrice,
+                    targetPrice: targetPrice,
+                    sector: sector,
+                    memo: memo,
+                    addedAt: editingIndex === -1 ? new Date().toISOString() : watchlist[editingIndex].addedAt,
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                if (editingIndex === -1) {
+                    watchlist.push(stockData);
+                } else {
+                    watchlist[editingIndex] = stockData;
+                }
+                
+                saveWatchlist();
+                loadWatchlist();
+                updateTreemap();
+                calculateStats();
+                closeAddModal();
+            } else {
+                alert('시세 조회에 실패했습니다.');
+                document.getElementById('addBtn').disabled = false;
+                document.getElementById('addBtn').textContent = editingIndex === -1 ? '추가' : '수정';
+            }
+        }
+
+        async function updateStock(index) {
+            const stock = watchlist[index];
+            const priceData = await fetchStockPrice(stock.code);
+            
+            if (priceData) {
+                watchlist[index].price = priceData.price;
+                watchlist[index].change = priceData.change;
+                watchlist[index].changeRate = priceData.changeRate;
+                watchlist[index].marketCap = priceData.marketCap;
+                watchlist[index].lastUpdated = new Date().toISOString();
+                saveWatchlist();
+            }
+        }
+
+        async function refreshAllStocks(reload = true) {
+            if (watchlist.length === 0) return;
+            if (!serverOnline) {
+                if (reload) alert('서버가 실행되지 않았습니다.');
+                return;
+            }
+            
+            const updates = watchlist.map((stock, index) => updateStock(index));
+            await Promise.all(updates);
+            if (reload) {
+                loadWatchlist();
+                updateTreemap();
+                calculateStats();
+            }
+        }
+
+        function loadWatchlist() {
+            const content = document.getElementById('watchlistContent');
+            
+            if (watchlist.length === 0) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <div>보유 종목이 없습니다</div>
+                        <div style="font-size: 12px; margin-top: 8px;">
+                            "추가" 버튼을 눌러<br>
+                            보유 종목을 추가해보세요!
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            content.innerHTML = '';
+            
+            watchlist.forEach((stock, index) => {
+                const currentPrice = parseInt(stock.price.replace(/,/g, ''));
+                const investAmount = stock.buyPrice * stock.quantity;
+                const currentAmount = currentPrice * stock.quantity;
+                const profit = currentAmount - investAmount;
+                const profitRate = (profit / investAmount * 100).toFixed(2);
+                
+                const targetProgress = stock.targetPrice ? 
+                    Math.min(100, (currentPrice / stock.targetPrice * 100)) : 0;
+                
+                const item = document.createElement('div');
+                item.className = `stock-item ${profit >= 0 ? 'profit' : 'loss'}`;
+                
+                item.innerHTML = `
+                    <div class="stock-item-header">
+                        <div>
+                            <div class="stock-item-name">${stock.name}</div>
+                            <div class="stock-item-sector">${stock.sector}</div>
+                            <div class="stock-item-code">${stock.code}</div>
+                        </div>
+                        <div class="stock-item-actions">
+                            <button class="stock-item-edit" onclick="editStock(${index})" title="수정">✏️</button>
+                            <button class="stock-item-delete" onclick="deleteStock(${index})" title="삭제">✕</button>
+                        </div>
+                    </div>
+                    
+                    <div class="stock-metrics">
+                        <div class="metric">
+                            <div class="metric-label">현재가</div>
+                            <div class="metric-value">${stock.price}원</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">보유수량</div>
+                            <div class="metric-value">${stock.quantity}주</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">평가액</div>
+                            <div class="metric-value">${currentAmount.toLocaleString()}원</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">손익</div>
+                            <div class="metric-value ${profit >= 0 ? 'positive' : 'negative'}">
+                                ${profit >= 0 ? '+' : ''}${profit.toLocaleString()}원
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="metric">
+                        <div class="metric-label">수익률: ${profitRate >= 0 ? '+' : ''}${profitRate}%</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${profit >= 0 ? '' : 'negative'}" 
+                                 style="width: ${Math.abs(profitRate)}%"></div>
+                        </div>
+                    </div>
+                    
+                    ${stock.targetPrice ? `
+                        <div class="metric" style="margin-top: 8px;">
+                            <div class="metric-label">목표가: ${stock.targetPrice.toLocaleString()}원 (달성률: ${targetProgress.toFixed(1)}%)</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${targetProgress}%"></div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${stock.memo ? `<div class="stock-item-memo">📝 ${stock.memo}</div>` : ''}
+                `;
+                
+                content.appendChild(item);
+            });
+        }
+
+        function editStock(index) {
+            editingIndex = index;
+            const stock = watchlist[index];
+            
+            selectedStock = { name: stock.name, code: stock.code };
+            
+            document.getElementById('modalTitle').textContent = '✏️ 종목 수정';
+            document.getElementById('stockName').value = stock.name;
+            document.getElementById('stockQuantity').value = stock.quantity;
+            document.getElementById('stockBuyPrice').value = stock.buyPrice;
+            document.getElementById('stockTargetPrice').value = stock.targetPrice || '';
+            document.getElementById('stockSector').value = stock.sector;
+            document.getElementById('stockMemo').value = stock.memo || '';
+            document.getElementById('addBtn').textContent = '수정';
+            document.getElementById('addBtn').disabled = false;
+            
+            document.getElementById('addModal').classList.add('active');
+        }
+
+        function deleteStock(index) {
+            if (confirm('이 종목을 삭제하시겠습니까?')) {
+                watchlist.splice(index, 1);
+                saveWatchlist();
+                loadWatchlist();
+                updateTreemap();
+                calculateStats();
+            }
+        }
+
+        function openAddModal() {
+            if (!serverOnline) {
+                alert('서버가 실행되지 않았습니다.\n\nstart_simple.bat을 실행해주세요!');
+                return;
+            }
+            
+            editingIndex = -1;
+            document.getElementById('modalTitle').textContent = '⭐ 종목 추가';
+            document.getElementById('addBtn').textContent = '추가';
+            document.getElementById('addModal').classList.add('active');
+            document.getElementById('stockName').focus();
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.remove('active');
+            document.getElementById('stockName').value = '';
+            document.getElementById('stockQuantity').value = '';
+            document.getElementById('stockBuyPrice').value = '';
+            document.getElementById('stockTargetPrice').value = '';
+            document.getElementById('stockSector').value = '';
+            document.getElementById('stockMemo').value = '';
+            document.getElementById('autocompleteList').classList.remove('active');
+            document.getElementById('addBtn').disabled = true;
+            selectedStock = null;
+            editingIndex = -1;
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.autocomplete-container')) {
+                document.getElementById('autocompleteList').classList.remove('active');
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            updateTreemap();
+        });
+
+        // 초기화
+        checkServerStatus();
+        loadWatchlist();
+        updateTreemap();
+        calculateStats();
+
+        setInterval(checkServerStatus, 30000);
+
+        updateInterval = setInterval(() => {
+            if (serverOnline) {
+                refreshAllStocks(true);
+            }
+        }, 60 * 1000);
+    </script>
+</body>
+</html>
